@@ -12,9 +12,9 @@ import (
 func main() {
 	m := macross.New()
 	m.Use(logger.Logger())
-	m.SetRenderer(pongor.Renderor())
 	m.Use(static.Static("public"))
 	//m.Use(statio.Serve("/", statio.LocalFile("public", false)))
+	m.SetRenderer(pongor.Renderor())
 
 	m.File("/favicon.ico", "public/favicon.ico")
 	m.Get("/", handlers.GetMain)
@@ -22,5 +22,6 @@ func main() {
 	m.Post("/task", handlers.PostTask).Put(handlers.PutTask)
 	m.Delete("/task/<id>", handlers.DeleteTask)
 	//m.Static("/", "public")
+
 	m.Run(":7000")
 }
