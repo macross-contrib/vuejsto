@@ -10,6 +10,7 @@ import (
 )
 
 func main() {
+
 	m := macross.New()
 	m.Use(logger.Logger())
 	m.Use(static.Static("public"))

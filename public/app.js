@@ -22,7 +22,7 @@
                     return;
                 };
 
-                this.newTask.done = false;
+                this.newTask.done = 0;
 
                 this.$http.post('/task', this.newTask).success(function(res) {
                     this.newTask.id = res.created;
@@ -35,6 +35,7 @@
             },
 
             deleteTask: function(index) {
+                console.log(index);
                 this.$http.delete('/task/' + index).success(function(res) {
                     this.$http.get('/tasks').then(function(res) {
                         this.tasks = res.data.items ? res.data.items : [];
@@ -46,7 +47,7 @@
 
             updateTask: function(task, completed) {
                 if (completed) {
-                    task.done = true;
+                    task.done = 1;
                 }
 
                 this.$http.put('/task', task).success(function(res) {

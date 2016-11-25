@@ -1,135 +1,113 @@
 package models
 
 import (
-	"database/sql"
+	"errors"
 	"fmt"
-	_ "github.com/mattn/go-sqlite3"
+	"log"
+	"os"
+	"path"
+	"time"
+
+	"github.com/go-xorm/core"
+	"github.com/go-xorm/xorm"
+
+	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/lib/pq"
 )
 
 var (
-	DB   *sql.DB
-	Path string
+	Engine   *xorm.Engine
+	DataType string
+	Path     string
 )
 
-func init() {
-	var err error
-	Path = "storage.db"
-	DB, err = sql.Open("sqlite3", Path)
-	if err != nil {
-		panic(err)
-	}
-	if DB == nil {
-		panic("DB is nil!")
-	} else {
-		fmt.Println("Vuejsto already standby!")
-	}
-	migrate(DB)
-}
-
-func migrate(db *sql.DB) {
-	sql := `
-		CREATE TABLE IF NOT EXISTS tasks (
-			id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-			name VARCHAR NOT NULL,
-			done INTEGER NOT NULL
-		);
-	`
-
-	_, err := db.Exec(sql)
-	if err != nil {
-		panic(err)
-	}
-}
-
 type Task struct {
-	ID   int    `json:"id"`
+	Id   int64  `json:"id"`
 	Name string `json:"name"`
-	Done bool   `json:"done"`
+	Done int64  `json:"done"`
 }
 
-type TaskCollection struct {
-	Tasks []Task `json:"items"`
-}
+func init() {
 
-func GetTasks() TaskCollection {
-	sql := "SELECT * FROM tasks;"
-	rows, err := DB.Query(sql)
+	DataType = "mysql"
 
-	if err != nil {
-		panic(err)
+	var _error error
+	if Engine, _error = SetEngine(); _error != nil {
+		log.Fatal("Vuejsto.models.init() errors:", _error.Error())
+	} else {
+		log.Println("Vuejsto already standby!")
 	}
 
-	defer rows.Close()
-	result := TaskCollection{}
+	if _error = createTables(Engine); _error != nil {
+		log.Fatal("Fail to creatTables errors:", _error.Error())
+	}
 
-	for rows.Next() {
-		task := Task{}
-		err := rows.Scan(&task.ID, &task.Name, &task.Done)
+}
+
+func ConDb() (*xorm.Engine, error) {
+	switch {
+	case DataType == "sqlite":
+		Path = "./data/storage.db"
+
+	case DataType == "mysql":
+		Path = "root:@tcp(127.0.0.1:3306)/db?charset=utf8"
+
+	case DataType == "postgres":
+		Path = "user=postgres password=yourpass dbname=pgsql sslmode=disable"
+	}
+
+	return xorm.NewEngine(DataType, Path)
+}
+
+func SetEngine() (*xorm.Engine, error) {
+	var _error error
+	if Engine, _error = ConDb(); _error != nil {
+		return nil, fmt.Errorf("Fail to connect to database: %s", _error.Error())
+	} else {
+		Engine.SetMapper(core.GonicMapper{})
+		cacher := xorm.NewLRUCacher(xorm.NewMemoryStore(), 10240)
+		Engine.SetDefaultCacher(cacher)
+
+		logPath := path.Join("./logs", "xorm.log")
+		os.MkdirAll(path.Dir(logPath), os.ModePerm)
+		f, err := os.Create(logPath)
 		if err != nil {
-			panic(err)
+			return Engine, fmt.Errorf("Fail to create xorm.log: %s", err.Error())
 		}
-		result.Tasks = append(result.Tasks, task)
-	}
 
-	return result
+		Engine.SetLogger(xorm.NewSimpleLogger(f))
+		Engine.ShowSQL(false)
+
+		if location, err := time.LoadLocation("Asia/Shanghai"); err == nil {
+			Engine.TZLocation = location
+		}
+
+		return Engine, err
+	}
+}
+
+func createTables(Engine *xorm.Engine) error {
+	return Engine.Sync2(&Task{})
+}
+
+func GetTasks(offset int, limit int, field string) (*[]*Task, error) {
+	tks := new([]*Task)
+	err := Engine.Limit(limit, offset).Desc(field).Find(tks)
+	return tks, err
 }
 
 func PostTask(name string) (int64, error) {
-	sql := "INSERT INTO tasks(name, done) VALUES(?, 0)"
-
-	stmt, err := DB.Prepare(sql)
-	if err != nil {
-		panic(err)
-	}
-
-	defer stmt.Close()
-
-	result, err := stmt.Exec(name)
-	if err != nil {
-		panic(err)
-	}
-
-	return result.LastInsertId()
+	var tk = &Task{Name: name, Done: 0}
+	_, err := Engine.Insert(tk)
+	return tk.Id, errors.New(fmt.Sprintf("PostTask Error:%v", err))
 }
 
 func PutTask(task Task) (int64, error) {
-	var sql string
-
-	sql = "UPDATE tasks SET name = ?, done = ? WHERE id = ?"
-
-	stmt, err := DB.Prepare(sql)
-	if err != nil {
-		panic(err)
-	}
-
-	defer stmt.Close()
-
-	done := 0
-	if task.Done {
-		done = 1
-	}
-
-	result, err := stmt.Exec(task.Name, done, task.ID)
-
-	if err != nil {
-		panic(err)
-	}
-
-	return result.LastInsertId()
+	_, err := Engine.Id(task.Id).Update(task)
+	return task.Id, err
 }
 
-func DeleteTask(id int) (int64, error) {
-	sql := "DELETE FROM tasks WHERE id = ?"
-
-	stmt, err := DB.Prepare(sql)
-	if err != nil {
-		panic(err)
-	}
-
-	result, err := stmt.Exec(id)
-	if err != nil {
-		panic(err)
-	}
-
-	return result.RowsAffected()
+func DeleteTask(id int64) (int64, error) {
+	row, err := Engine.Id(id).Delete(new(Task))
+	return row, err
 }
