@@ -9,16 +9,16 @@ func GetMain(self *macross.Context) error {
 	return self.Render(macross.StatusOK, "index")
 }
 
-func GetTasks(c *macross.Context) error {
+func GetTasks(self *macross.Context) error {
 	tks, _ := models.GetTasks(0, 0, "id")
 	var data = map[string]interface{}{}
 	data["items"] = tks
-	return c.JSON(macross.StatusOK, data)
+	return self.JSON(macross.StatusOK, data)
 }
 
-func PostTask(c *macross.Context) error {
+func PostTask(self *macross.Context) error {
 	var task models.Task
-	c.Bind(&task)
+	self.Bind(&task)
 
 	id, err := models.PostTask(task.Name)
 	if err != nil {
@@ -26,18 +26,18 @@ func PostTask(c *macross.Context) error {
 	}
 	var data = map[string]interface{}{}
 	data["updated"] = id
-	return c.JSON(macross.StatusCreated, data)
+	return self.JSON(macross.StatusCreated, data)
 
 }
 
-func PutTask(c *macross.Context) error {
+func PutTask(self *macross.Context) error {
 	var task models.Task
-	c.Bind(&task)
+	self.Bind(&task)
 
 	if id, err := models.PutTask(task); err == nil {
 		var data = map[string]interface{}{}
 		data["updated"] = id
-		return c.JSON(macross.StatusOK, data)
+		return self.JSON(macross.StatusOK, data)
 	} else {
 		return err
 	}
