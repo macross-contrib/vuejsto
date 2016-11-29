@@ -6,14 +6,14 @@ import (
 )
 
 func GetMain(self *macross.Context) error {
-	return self.Render(macross.StatusOK, "index")
+	return self.Render("index")
 }
 
 func GetTasks(self *macross.Context) error {
 	tks, _ := models.GetTasks(0, 0, "id")
 	var data = map[string]interface{}{}
 	data["items"] = tks
-	return self.JSON(macross.StatusOK, data)
+	return self.JSON(data)
 }
 
 func PostTask(self *macross.Context) error {
@@ -26,7 +26,7 @@ func PostTask(self *macross.Context) error {
 	}
 	var data = map[string]interface{}{}
 	data["updated"] = id
-	return self.JSON(macross.StatusCreated, data)
+	return self.JSON(data, macross.StatusCreated)
 
 }
 
@@ -37,7 +37,7 @@ func PutTask(self *macross.Context) error {
 	if id, err := models.PutTask(task); err == nil {
 		var data = map[string]interface{}{}
 		data["updated"] = id
-		return self.JSON(macross.StatusOK, data)
+		return self.JSON(data)
 	} else {
 		return err
 	}
@@ -50,5 +50,5 @@ func DeleteTask(self *macross.Context) error {
 	}
 	var data = map[string]interface{}{}
 	data["deleted"] = id
-	return self.JSON(macross.StatusOK, data)
+	return self.JSON(data)
 }
