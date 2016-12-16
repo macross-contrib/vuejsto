@@ -24,5 +24,5 @@ func main() {
 	m.Delete("/task/<id>", handlers.DeleteTask)
 	//m.Static("/", "public")
 
-	m.Run(":7000")
+	m.Listen(":7000")
 }
